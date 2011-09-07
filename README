@@ -1,0 +1,19 @@
+This is a very simple Python script that pulls the public feed for any
+given Google+ ID, and saves an Atom 1.0 xml file, "atom.xml" in that
+directory.
+
+This was done primarily to replace Russell Beattie's PlusFeed application
+which I'd been using to republish my G+ feed to Twitter, via TwitterFeed,
+until the GAE pricing changes made that unviable.
+
+Given my focus on Twitter here, the Atom I'm producing truncates summaries
+to 140 chars.
+
+Parsing the G+ feed was done with help from the following:
+
+http://www.reddit.com/r/googleplus/comments/iq21n/getting_the_google_feed_for_any_profile_in_json/
+http://stackoverflow.com/questions/6618441/strange-json-response-in-google-plus
+https://github.com/russellbeattie/plusfeed
+
+Usage: feedplus.py <G+ id> <dir>
+
