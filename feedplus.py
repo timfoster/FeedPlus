@@ -139,7 +139,7 @@ class PlusComment(PlusEntry):
                 self.author_id = json_obj[6]
                 self.datestamp = datetime.fromtimestamp(float(json_obj[3])/1000)
 
-def pull_from_plus(plusid="107847990164269071741"):
+def pull_from_plus(plus_id="107847990164269071741"):
         """Given a Google Plus id, return a text string
         containing the JSON returned.
         """
@@ -148,10 +148,10 @@ def pull_from_plus(plusid="107847990164269071741"):
 
         head = \
             "https://plus.google.com/_/stream/getactivities/%(plusid)s/?sp=" % \
-            {"plusid": plusid}    
+            {"plusid": plus_id}    
         tail = \
             '[1    ,2,"%(plusid)s",null,null,null,null,"social.google.com",[]]' % \
-            {"plusid": plusid}
+            {"plusid": plus_id}
         url = head + urllib2.quote(tail)
         try:
                 response = urllib2.urlopen(url)
