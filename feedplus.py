@@ -26,7 +26,7 @@
 # a given G+ ID.
 
 import cgi
-import os.path
+import os
 import re
 import simplejson
 import urllib2
@@ -155,7 +155,7 @@ def pull_from_plus(plus_id="107847990164269071741"):
         url = head + urllib2.quote(tail)
         try:
                 response = urllib2.urlopen(url)
-        except URLError, err:
+        except urllib2.URLError, err:
                 raise ValueError("failed to open url: %s" % err)
 
         if not response or response.code != 200:
@@ -174,10 +174,11 @@ def pull_from_plus(plus_id="107847990164269071741"):
         txt = txt.replace("[,","[null,")
         txt = txt.replace(",]",",null]")
 
-        # cache the json to a flat file, useful debugging
-        # f = open("./json", "w")
-        # f.write(txt)
-        # f.close()
+        # cache the json to a flat file, useful when debugging
+        if os.environ.get("FEEDPLUS_DEBUG"):
+                f = open("./json", "w")
+                f.write(txt)
+                f.close()
         return txt
 
 def atom_header(entry):
@@ -284,7 +285,7 @@ def main():
         if not os.path.exists("./json"):
                 json = pull_from_plus(plus_id=sys.argv[1])
         else:
-                f = open("'./json", "r")
+                f = open("./json", "r")
                 json = f.read()
                 f.close()
 
