@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python
 
 # Copyright (c) 2011 Tim Foster
 # 
@@ -64,6 +64,7 @@ class PlusEntry(object):
                 [11][x][24][1] = Linked URL
                 [11][x][24][4] = Type: document, image, photo, video
                 [11][x][41][0][1] = Thumbnail of image
+		[20] = Plaintext of post
                 [21] = Link to Google+ page for the post
                 """
                 self.author = None
@@ -81,6 +82,7 @@ class PlusEntry(object):
                 self.datestamp = datetime.fromtimestamp(float(json_obj[5])/1000)
 
                 self.comments = [PlusComment(c) for c in json_obj[7]]
+                self.plaintext = json_obj[20]
                 self.permalink = "https://plus.google.com/%s" % json_obj[21]
 
                 # Gather as much as we can about each link
@@ -238,8 +240,7 @@ def truncate_post(entry):
         try to ensure that gets added to the post at
         the expense of the text.
         """
-        # zorch html
-        post = re.sub("<[^<]+?>", "", entry.post)
+        post = entry.plaintext
 
         # only ever include 1 link
         if entry.links:
