@@ -214,7 +214,8 @@ def render_atom_entry(entry):
         post_dic = {"title": "G+ post: %s ..." % cgi.escape(trunc(post, 50)),
             "link": entry.permalink,
             "date": entry.datestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "uuid": uuid.uuid5(uuid.NAMESPACE_DNS, post),
+            "uuid": uuid.uuid5(uuid.NAMESPACE_DNS, post.encode(
+                "ascii", "ignore")),
             "summary": cgi.escape(post),
             "permalink": entry.permalink }
 
@@ -240,6 +241,7 @@ def truncate_post(entry):
         try to ensure that gets added to the post at
         the expense of the text.
         """
+        # zorch html
         post = entry.plaintext
 
         # only ever include 1 link
@@ -258,7 +260,7 @@ def truncate_post(entry):
                         # add dots to show abbreviated content
                         # we should do more to shorten links (bit.ly?)
                         if url_len <= 140:
-                                size = 140 - url_len
+                                size = 140 - url_len - 2
                                 return "%s %s" % (trunc(post, size), url)
         return trunc(post)
                         
@@ -298,7 +300,7 @@ def main():
         for entry in json_entries:
                 entries.append(PlusEntry(entry))
         atom = open("%s/atom.xml" % sys.argv[2], "w")
-        atom.write(render_atom_feed(entries))
+        atom.write(render_atom_feed(entries).encode("UTF-8"))
         atom.close()
 
 if __name__ == "__main__":
