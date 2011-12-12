@@ -1,6 +1,4 @@
 * improve truncating method
 * Use a URL shortening service
-* Check for duplicate URLs in entry body vs. auto-inserted
-  entry link objects
-* if we have multiple links, we may just want to include
-  the post, and a link to the original G+ entry
+* Add an option to post to Twitter directly,
+  rather than just writing an Atom xml file.
