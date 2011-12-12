@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# coding=utf-8
 
 # Copyright (c) 2011 Tim Foster
 # 
@@ -26,169 +27,107 @@
 # a given G+ ID.
 
 import cgi
+import codecs
 import os
-import re
-import simplejson
-import urllib2
 import uuid
 import sys
 
-from collections import namedtuple
-from datetime import datetime
+import apiclient.discovery
+import httplib2
+import os.path
 
-# Links are straightforward - a namedtuple will suffice
-PlusLink = namedtuple("LinkEntry",
-    ["title", "img_url", "desc", "link_url", "link_type", "thumb"])
+import settings
 
+from lxml import etree
+
+# Not using this yet
+#
+#from oauth2client.client import OAuth2WebServerFlow
+#from oauth2client.tools import run
+#from oauth2client.file import Storage
+from StringIO import StringIO
 
 class PlusEntry(object):
         """Capture the content of a single G+ post.
         Really need a __repr__ or __str__ method, sorry.
         """
 
-        def __init__(self, json_obj=None):
+        def __init__(self, activity=None):
                 """
-                Create a new PlusEntry object.  If json_obj is
-                supplied, we populate it with content from that
-                object, according to the following:
+                Create a new PlusEntry object, wrapping the G+ activity in a
+                more straightforward object.  Needs work to capture more of
+                the activity content I care about.
 
-                [3] = Author
-                [16] = Author id
-                [4] = Full HTML text
-                [5] = Unix timestamp followed by 3 digits for ms
-                [7] = Comments
-                [11] = Array of one or more links
-                [11][x][3] = Title of link
-                [11][x][5][1] = URL of image uploaded
-                [11][x][21] = Description of link
-                [11][x][24][1] = Linked URL
-                [11][x][24][4] = Type: document, image, photo, video
-                [11][x][41][0][1] = Thumbnail of image
-		[20] = Plaintext of post
-                [21] = Link to Google+ page for the post
                 """
-                self.author = None
-                self.author_id = None
-                self.post = None
-                self.datestamp = None
-                self.comments = []
+                self.author = activity['actor']['displayName']
+                self.author_id = activity['actor']['id']
+
+                self.post = activity['object']['content']
+                # when resharing, the author and the post_author can be
+                # different
+                self.post_author = None
+                self.post_id = None
+                if 'actor' in activity['object']:
+                        self.post_author = activity['object']['actor']['displayName']
+                        self.post_id = activity['object']['actor']['id']
+                
+                self.datestamp = activity['updated']      
+                self.permalink = activity['url']
                 self.links = []
-                self.permalink = None
-                if not json_obj:
-                        return
-                self.author = json_obj[3]
-                self.author_id = json_obj[16]
-                self.post = json_obj[4]
-                self.datestamp = datetime.fromtimestamp(float(json_obj[5])/1000)
+                if 'attachments' in activity['object']:
+                        self.links.append(activity['object']['attachments'][0]['url'])
 
-                self.comments = [PlusComment(c) for c in json_obj[7]]
-                self.plaintext = json_obj[20]
-                self.permalink = "https://plus.google.com/%s" % json_obj[21]
 
-                # Gather as much as we can about each link
-                for i in range(0, len(json_obj[11])):
-                        title = None
-                        img_url = None
-                        desc = None
-                        link_url = None
-                        link_type = None
-                        thumb = None
+def build_service(credentials, http, api_key=None):
+        """For now, credentials are always None"""
+        if ( credentials != None ):
+            http = credentials.authorize(http)
+        service = apiclient.discovery.build('plus', 'v1', http=http,
+            developerKey=api_key)
 
-                        # this is pretty horrid
-                        try:
-                                title = json_obj[11][i][3]
-                        except:
-                                pass
-                        try:
-                                img_url = json_obj[11][i][5][1]
-                        except:
-                                pass
-                        try:   
-                                desc = json_obj[11][i][21]
-                        except:
-                                pass
-                        try:
-                                link_url = json_obj[11][i][24][1]
-                        except:
-                                pass
-                        try:
-                                link_type = json_obj[11][i][24][4]
-                        except:
-                                pass
-                        try:
-                                thumb = json_obj[11][i][41][0][1]
-                        except:
-                                pass
-
-                        link = PlusLink(title, img_url, desc, link_url, link_type, thumb)
-                        self.links.append(link)
-
-class PlusComment(PlusEntry):
-        """A comment to a PlusEntry - could probably be expanded."""
-        def __init__(self, json_obj=None):
-                """Create a new PlusComment object. If json_obj is
-                provided, we populate the PlusEntry with contents from
-                that object.
-                """
-                self.post = None
-                self.author = None
-                self.author_id = None
-                self.datestamp = None
-                if not json_obj:
-                        return
-                self.post = json_obj[2]
-                self.author = json_obj[1]
-                self.author_id = json_obj[6]
-                self.datestamp = datetime.fromtimestamp(float(json_obj[3])/1000)
+        return service
 
 def pull_from_plus(plus_id="107847990164269071741"):
-        """Given a Google Plus id, return a text string
-        containing the JSON returned.
+        """Given a Google Plus id, return a list of activity json objects.
         """
 
-        commas = re.compile(",,",re.M)
+        # Lifted from Google's Python example cli - for now, we're
+        # only doing public feed content.
+        #
+        # http = httplib2.Http()
+        # credentials = authorize_self(settings.CLIENT_ID,settings.CLIENT_SECRET)
+        # service = build_service(credentials,http)
 
-        head = \
-            "https://plus.google.com/_/stream/getactivities/%(plusid)s/?sp=" % \
-            {"plusid": plus_id}    
-        tail = \
-            '[1    ,2,"%(plusid)s",null,null,null,null,"social.google.com",[]]' % \
-            {"plusid": plus_id}
-        url = head + urllib2.quote(tail)
-        try:
-                response = urllib2.urlopen(url)
-        except urllib2.URLError, err:
-                raise ValueError("failed to open url: %s" % err)
+        # person = service.people().get(userId='me').execute(http)
+        # print "Got your ID: " + person['displayName']
 
-        if not response or response.code != 200:
-                raise ValueError("HTTP %s" % response.code)
+        httpUnauth = httplib2.Http()
+        serviceUnauth = build_service(None, httpUnauth, settings.API_KEY)
 
-        # formatting with newlines makes life easier when
-        # reading the text file from a terminal when debugging
-        txt = "\n".join([line.rstrip() for line in response.readlines()])
+        activities = []
+        npt = ""
 
-        # the Google plus response contains JSON with missing
-        # nulls and a leading string, ")]}'\n".  Remove that
-        # string, and replace the nulls.
-        txt = txt[5:]
-        txt = commas.sub(",null,",txt)
-        txt = commas.sub(",null,",txt)
-        txt = txt.replace("[,","[null,")
-        txt = txt.replace(",]",",null]")
+        while (npt != None):
+                activities_doc = serviceUnauth.activities().list(
+                    userId=plus_id,collection="public").execute(httpUnauth)
 
-        # cache the json to a flat file, useful when debugging
-        if os.environ.get("FEEDPLUS_DEBUG"):
-                f = open("./json", "w")
-                f.write(txt)
-                f.close()
-        return txt
+                if "items" in activities_doc:
+                        activities += activities_doc["items"]
+
+                if not 'nextPageToken' in activities_doc or \
+                    activities_doc["nextPageToken"] == npt:
+                        "---Done"
+                break
+
+                npt = activities_doc["nextPageToken"]
+        return activities
 
 def atom_header(entry):
         """return a basic atom header, based on
         a single PlusEntry object."""
         author = entry.author
         uuidstr = uuid.uuid5(uuid.NAMESPACE_DNS, author)
-        date = entry.datestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
+        date = entry.datestamp
         return """<?xml version="1.0" encoding="utf-8"?>
  
  <feed xmlns="http://www.w3.org/2005/Atom">
@@ -208,14 +147,12 @@ def atom_footer():
 
 def render_atom_entry(entry):
         """Our default entry format."""
-        text = "         <entry>\n"
         post = truncate_post(entry)
-
         post_dic = {"title": "G+ post: %s ..." % cgi.escape(trunc(post, 50)),
             "link": entry.permalink,
-            "date": entry.datestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "uuid": uuid.uuid5(uuid.NAMESPACE_DNS, post.encode(
-                "ascii", "ignore")),
+            "date": entry.datestamp,
+            "uuid": uuid.uuid5(uuid.NAMESPACE_URL,
+                entry.author + entry.datestamp),
             "summary": cgi.escape(post),
             "permalink": entry.permalink }
 
@@ -229,6 +166,14 @@ def render_atom_entry(entry):
         </entry>
 """ % post_dic
 
+def html_to_plaintext(text):
+        """try to get readable plaintext from the G+ html.   Lxml doesn't
+        seem to do <br> elements properly."""
+        text = text.replace("<br />", " ")
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(text), parser)
+        return etree.tounicode(tree.getroot(), method="text")
+
 def trunc(str, max_size=140):
         """Basic sring truncation"""
         if len(str) > max_size:
@@ -236,33 +181,22 @@ def trunc(str, max_size=140):
         return str 
 
 def truncate_post(entry):
-        """Want to shorten the entry to 140 chars if
-        possible, but if it includes a link or photo,
-        try to ensure that gets added to the post at
-        the expense of the text.
+        """Want to shorten the entry to 140 chars.  Any longer than that
+        and we simply provide a link to the original.
         """
-        # zorch html
-        post = entry.plaintext
+        post = cgi.escape(html_to_plaintext(entry.post))
 
-        # only ever include 1 link
+        if entry.post_id:
+                post = "RT +%s: " % entry.post_author + post
+
         if entry.links:
-                url = ""
-                if entry.links[0].link_url:
-                        url = entry.links[0].link_url.strip()
-                elif entry.links[0].img_url:
-                        url = entry.links[0].img_url.strip()
-                url = url.rstrip("/")
-                if url not in post:
-                        # simple case
-                        if len(post) + len(url) + 1 <= 140:
-                                return "%s %s" % (post, url)
-                        url_len = len(url)
-                        # add dots to show abbreviated content
-                        # we should do more to shorten links (bit.ly?)
-                        if url_len <= 140:
-                                size = 140 - url_len - 2
-                                return "%s %s" % (trunc(post, size), url)
-        return trunc(post)
+                url = entry.links[0].strip()
+                post = "%s %s" % (post, url)
+
+        if len(post) > 140:
+                post = "%s %s" % (trunc(post, max_size=75), entry.permalink)
+
+        return post
                         
 def render_atom_feed(plus_entries):
         if not plus_entries:
@@ -277,6 +211,30 @@ def render_atom_feed(plus_entries):
         atom_entries.append(atom_footer())
         return "\n".join(atom_entries)
 
+# Not using this yet.
+#
+#def authorize_self(client_id="None", client_secret="None"):
+#        if client_id is None or client_secret is None:
+#                raise Exception("Please register at the API Console at: "
+#                    "https://code.google.com/apis/console.  See README.txt "
+#                    "for details!")
+#
+#        flow = OAuth2WebServerFlow(
+#            client_id=client_id,
+#            client_secret=client_secret,
+#            scope='https://www.googleapis.com/auth/plus.me',
+#            user_agent='feedplus/1.0',
+#            xoauth_displayname='FeedPlus')
+#
+#        #Remove this file if you want to do the OAuth2 dance again!
+#        credentials_file = 'plus_auth.dat'
+#
+#        storage = Storage(credentials_file)
+#        if os.path.exists(credentials_file):
+#                credentials = storage.get()
+#        else:
+#                credentials = run(flow, storage)
+#        return credentials
 
 def main():
 
@@ -284,23 +242,13 @@ def main():
                 print "Usage: feedplus.py <G+ id> <dir>"
                 sys.exit(2)
 
-        # some code to help debugging/testing
-        if not os.path.exists("./json"):
-                json = pull_from_plus(plus_id=sys.argv[1])
-        else:
-                f = open("./json", "r")
-                json = f.read()
-                f.close()
+        activities = pull_from_plus(plus_id=sys.argv[1])
 
-        obj = simplejson.loads(json)
-        # having an array with just the json entries for
-        # the public feed is useful when debugging
-        json_entries = obj[1][0]
         entries = []
-        for entry in json_entries:
-                entries.append(PlusEntry(entry))
+        for activity in activities:
+                entries.append(PlusEntry(activity))
         atom = open("%s/atom.xml" % sys.argv[2], "w")
-        atom.write(render_atom_feed(entries).encode("UTF-8"))
+        atom.write(codecs.encode(render_atom_feed(entries), "utf-8"))
         atom.close()
 
 if __name__ == "__main__":
