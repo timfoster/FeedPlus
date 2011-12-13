@@ -1,4 +1,3 @@
 * improve truncating method
 * Use a URL shortening service
-* Add an option to post to Twitter directly,
-  rather than just writing an Atom xml file.
+* Make sure image links are working
