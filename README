@@ -1,6 +1,7 @@
 This is a very simple Python script that pulls the public feed for any
 given Google+ ID, and saves an Atom 1.0 xml file, "atom.xml" in that
-directory.
+directory.  It also has the option to write the posts directly to
+Twitter as well.
 
 Given my focus on Twitter here, the Atom I'm producing truncates summaries
 to 140 chars, and when it does so, will include the permalink to the original
@@ -14,5 +15,31 @@ google-api-python-client-1.0beta6
 python-gflags-1.6
     http://code.google.com/p/python-gflags/downloads/list
 
-Usage: feedplus.py <G+ id> <dir>
+python-twitter-0.8.2/
+    http://code.google.com/p/python-twitter/downloads/list
+
+Usage: feedplus.py <G+ id> [ -d <dir> ] [True|False]
+
+The last argument is a boolean, telling feedplus whether you'd like it
+to automatically post updates to Twitter.  If so, the first time you
+run it, it'll ask for oAuth access to your Twitter account, and will
+save access keys in ~/.feedplusrc.
+
+[feedplus]
+oauth_token_secret = <feedplus will write this for you>
+oauth_token = <feedplus will write this for you>
+# sample datestamp
+last_post = 2011-12-13T03:53:54.435Z
+
+The first time it posts to Twitter, it'll create .feedplusrc in
+your home directory, and will write the key "last_post", indicating
+the latest datestamp of the post it has written to Twitter.
+
+If you delete that file, you'll get duplicate posts appearing in your
+Twitter feed.
+
+
+Finally, the Twitter support is new, and largely untested: try running
+fp_twitter.py which will just do the oAuth dance, then print out some
+of your current timeline.
 

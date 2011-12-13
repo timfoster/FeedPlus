@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.6
 # coding=utf-8
 
 # Copyright (c) 2011 Tim Foster
@@ -26,6 +26,7 @@
 # A very basic python script to produce an Atom feed from
 # a given G+ ID.
 
+import ConfigParser
 import cgi
 import codecs
 import os
@@ -37,6 +38,7 @@ import httplib2
 import os.path
 
 import settings
+import fp_twitter
 
 from lxml import etree
 
@@ -211,35 +213,37 @@ def render_atom_feed(plus_entries):
         atom_entries.append(atom_footer())
         return "\n".join(atom_entries)
 
-# Not using this yet.
-#
-#def authorize_self(client_id="None", client_secret="None"):
-#        if client_id is None or client_secret is None:
-#                raise Exception("Please register at the API Console at: "
-#                    "https://code.google.com/apis/console.  See README.txt "
-#                    "for details!")
-#
-#        flow = OAuth2WebServerFlow(
-#            client_id=client_id,
-#            client_secret=client_secret,
-#            scope='https://www.googleapis.com/auth/plus.me',
-#            user_agent='feedplus/1.0',
-#            xoauth_displayname='FeedPlus')
-#
-#        #Remove this file if you want to do the OAuth2 dance again!
-#        credentials_file = 'plus_auth.dat'
-#
-#        storage = Storage(credentials_file)
-#        if os.path.exists(credentials_file):
-#                credentials = storage.get()
-#        else:
-#                credentials = run(flow, storage)
-#        return credentials
+def update_twitter(entries):
+        """Write a list of entries to Twitter, using the "last_post" key in
+        ~/.feedplusrc and only posting items newer than that."""
+        
+        api = fp_twitter.twitter_api()
+        config_path = os.path.expanduser("~/.feedplusrc")
+        config = ConfigParser.ConfigParser()
+        config.read([config_path])
+        last_post = config.get("feedplus", "last_post")
+        if not last_post:
+                # totally arbitrary value
+                last_post = "2011-12-12T01:21:15.790Z"
+
+        # look for new posts, posting in chronological order
+        posted = False
+        for entry in reversed(entries):
+                text = truncate_post(entry)
+                if entry.datestamp > last_post:
+                        posted = True
+                        api.PostUpdate(text)
+
+        if posted:
+                config.set("feedplus", "last_post", entries[0].datestamp)
+                with open(config_path, 'wb') as configfile:
+                        config.write(configfile)
+                        os.chmod(config_path, 0600)
 
 def main():
 
-        if len(sys.argv) < 3:
-                print "Usage: feedplus.py <G+ id> <dir>"
+        if len(sys.argv) < 4:
+                print "Usage: feedplus.py <G+ id> <dir> True|False (write to Twitter)"
                 sys.exit(2)
 
         activities = pull_from_plus(plus_id=sys.argv[1])
@@ -250,6 +254,9 @@ def main():
         atom = open("%s/atom.xml" % sys.argv[2], "w")
         atom.write(codecs.encode(render_atom_feed(entries), "utf-8"))
         atom.close()
+
+        if sys.argv[3].lower() == "true":
+                update_twitter(entries)
 
 if __name__ == "__main__":
         main()
