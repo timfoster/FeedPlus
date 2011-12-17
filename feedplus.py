@@ -172,9 +172,14 @@ def html_to_plaintext(text):
         """try to get readable plaintext from the G+ html.   Lxml doesn't
         seem to do <br> elements properly."""
         text = text.replace("<br />", " ")
-        parser = etree.HTMLParser()
-        tree = etree.parse(StringIO(text), parser)
-        return etree.tounicode(tree.getroot(), method="text")
+        try:
+                parser = etree.HTMLParser()
+                tree = etree.parse(StringIO(text), parser)
+                text = etree.tounicode(tree.getroot(), method="text")
+        except etree.XMLSyntaxError, e:
+                # we've tried our best, return whatever we were given
+                pass
+        return text
 
 def trunc(str, max_size=140):
         """Basic sring truncation"""
