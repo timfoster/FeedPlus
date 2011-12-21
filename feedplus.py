@@ -77,7 +77,11 @@ class PlusEntry(object):
                 self.permalink = activity['url']
                 self.links = []
                 if 'attachments' in activity['object']:
-                        self.links.append(activity['object']['attachments'][0]['url'])
+                        attach = activity['object']['attachments'][0]
+                        if 'image' in attach:
+                                self.links.append(attach['image']['url'])
+                        else:
+                                self.links.append(attach['url'])
 
 
 def build_service(credentials, http, api_key=None):
