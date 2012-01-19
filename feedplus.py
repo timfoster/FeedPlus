@@ -65,6 +65,8 @@ class PlusEntry(object):
                 self.author_id = activity['actor']['id']
 
                 self.post = activity['object']['content']
+                self.annotation = activity.get('annotation', None)
+
                 # when resharing, the author and the post_author can be
                 # different
                 self.post_author = None
@@ -176,14 +178,9 @@ def html_to_plaintext(text):
         """try to get readable plaintext from the G+ html.   Lxml doesn't
         seem to do <br> elements properly."""
         text = text.replace("<br />", " ")
-        try:
-                parser = etree.HTMLParser()
-                tree = etree.parse(StringIO(text), parser)
-                text = etree.tounicode(tree.getroot(), method="text")
-        except etree.XMLSyntaxError, e:
-                # we've tried our best, return whatever we were given
-                pass
-        return text
+        parser = etree.HTMLParser()
+        tree = etree.parse(StringIO(text), parser)
+        return etree.tounicode(tree.getroot(), method="text")
 
 def trunc(str, max_size=140):
         """Basic sring truncation"""
@@ -195,14 +192,28 @@ def truncate_post(entry):
         """Want to shorten the entry to 140 chars.  Any longer than that
         and we simply provide a link to the original.
         """
-        post = cgi.escape(html_to_plaintext(entry.post))
+        annotation = None
 
-        if entry.post_id:
-                post = "RT +%s: " % entry.post_author + post
+        # if we have comments on a shared post, use those in preference
+        # to the post itself
+        if entry.annotation:
+                annotation = cgi.escape(html_to_plaintext(entry.annotation))
+
+        post = ""
+        if entry.post:
+                post = cgi.escape(html_to_plaintext(entry.post))
+
+        if entry.post_id and not entry.annotation:
+                post = "RT +%s: %s" % (entry.post_author, post)
+        elif entry.post_id and entry.annotation:
+                post = "%s QT +%s: %s " % (annotation, entry.post_author, post)
 
         if entry.links:
                 url = entry.links[0].strip()
-                post = "%s %s" % (post, url)
+                if post:
+                        post = "%s %s" % (post, url)
+                else:
+                        post = url
 
         if len(post) > 140:
                 post = "%s %s" % (trunc(post, max_size=75), entry.permalink)
@@ -241,7 +252,8 @@ def update_twitter(entries):
                 text = truncate_post(entry)
                 if entry.datestamp > last_post:
                         posted = True
-                        api.PostUpdate(text)
+                        # api.PostUpdate(text)
+                        print "posting %s" % entry.datestamp
 
         if posted:
                 config.set("feedplus", "last_post", entries[0].datestamp)
