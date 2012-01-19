@@ -252,9 +252,7 @@ def update_twitter(entries):
                 text = truncate_post(entry)
                 if entry.datestamp > last_post:
                         posted = True
-                        # api.PostUpdate(text)
-                        print "posting %s" % entry.datestamp
-
+                        api.PostUpdate(text)
         if posted:
                 config.set("feedplus", "last_post", entries[0].datestamp)
                 with open(config_path, 'wb') as configfile:
