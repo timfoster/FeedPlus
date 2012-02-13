@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/local/bin/python2.7
 # coding=utf-8
 
 # Copyright (c) 2011 Tim Foster
@@ -134,7 +134,7 @@ def atom_header(entry):
         """return a basic atom header, based on
         a single PlusEntry object."""
         author = entry.author
-        uuidstr = uuid.uuid5(uuid.NAMESPACE_DNS, author)
+        uuidstr = uuid.uuid5(uuid.NAMESPACE_DNS, author.encode("UTF-8"))
         date = entry.datestamp
         return """<?xml version="1.0" encoding="utf-8"?>
  
@@ -160,7 +160,7 @@ def render_atom_entry(entry):
             "link": entry.permalink,
             "date": entry.datestamp,
             "uuid": uuid.uuid5(uuid.NAMESPACE_URL,
-                entry.author + entry.datestamp),
+                entry.author.encode("UTF-8") + entry.datestamp.encode("UTF-8")),
             "summary": cgi.escape(post),
             "permalink": entry.permalink }
 
@@ -252,7 +252,10 @@ def update_twitter(entries):
                 text = truncate_post(entry)
                 if entry.datestamp > last_post:
                         posted = True
-                        api.PostUpdate(text)
+                        # sometimes we don't have any text or images
+                        # (eg. a Google checkin with no comments)
+                        if text:
+                                api.PostUpdate(text)
         if posted:
                 config.set("feedplus", "last_post", entries[0].datestamp)
                 with open(config_path, 'wb') as configfile:
