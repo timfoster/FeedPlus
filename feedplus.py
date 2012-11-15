@@ -237,7 +237,7 @@ def update_twitter(entries):
         """Write a list of entries to Twitter, using the "last_post" key in
         ~/.feedplusrc and only posting items newer than that."""
         
-        api = fp_twitter.twitter_api()
+        tw_api = fp_twitter.twitter_api()
         config_path = os.path.expanduser("~/.feedplusrc")
         config = ConfigParser.ConfigParser()
         config.read([config_path])
@@ -255,7 +255,8 @@ def update_twitter(entries):
                         # sometimes we don't have any text or images
                         # (eg. a Google checkin with no comments)
                         if text:
-                                api.PostUpdate(text)
+                                tw_api.PostUpdate(text.replace(
+                                    "&amp;", "&"))
         if posted:
                 config.set("feedplus", "last_post", entries[0].datestamp)
                 with open(config_path, 'wb') as configfile:
