@@ -8,4 +8,4 @@ API_KEY = "AIzaSyCrEoeaxnRSbNgfm0BU05OnKjwsL3UhTps"
 # them from a url instead.
 # For more background, see:
 # http://groups.google.com/group/twitter-development-talk/browse_thread/thread/35ccbf938d8dc25a/965d471cb39fac6d
-TWITTER_CONSUMER_URL="http://121.73.68.241:8080/share/feedplus/"
+TWITTER_CONSUMER_URL="http://121.73.68.241/share/feedplus/"
