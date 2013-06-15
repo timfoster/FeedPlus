@@ -15,7 +15,7 @@ google-api-python-client-1.0beta6
 python-gflags-1.6
     http://code.google.com/p/python-gflags/downloads/list
 
-python-twitter-0.8.2/
+python-twitter-1.0
     http://code.google.com/p/python-twitter/downloads/list
 
 Usage: feedplus.py <G+ id> [ -d <dir> ] [True|False]
