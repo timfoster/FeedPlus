@@ -1,4 +1,4 @@
-#!/usr/local/bin/python2.7
+#!/usr/bin/python2.6
 # coding=utf-8
 
 # Copyright (c) 2011 Tim Foster
@@ -185,7 +185,16 @@ def html_to_plaintext(text):
 def trunc(str, max_size=140):
         """Basic sring truncation"""
         if len(str) > max_size:
-                return str[0:max_size - 3] + "..."
+                trunc_str = str[0:max_size - 3] + "..."
+                # try not to mangle http links
+                words = trunc_str.split(" ")
+                for word in words:
+                    if word.startswith("http") and word.endswith("..."):
+                        trunc_str = \
+                           trunc_str[0:trunc_str.index("http")] + "..."
+                        return trunc_str
+                return trunc_str
+                
         return str 
 
 def truncate_post(entry):
